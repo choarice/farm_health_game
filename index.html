@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>營養開心農場 - 豪華動畫連線硬核版</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+body{
+  margin:0;
+  font-family:"Microsoft JhengHei",sans-serif;
+  background:#f5fff2;
+  color:#333;
+  transition: background 1s ease, color 1s ease; /* 平滑日夜轉換 */
+}
+
+/* 黑夜場景樣式 */
+body.night-mode {
+  background: #1a2a3a !important;
+  color: #e0e0e0 !important;
+}
+body.night-mode .status, 
+body.night-mode .inventory, 
+body.night-mode .kitchen, 
+body.night-mode .shop,
+body.night-mode .modal-box,
+body.night-mode .inventory-card,
+body.night-mode .leaderboard {
+  background: #2c3e50 !important;
+  color: #fff !important;
+  border-color: #34495e !important;
+}
+body.night-mode .recipe, body.night-mode .shop-item, body.night-mode .leaderboard-item {
+  background: #34495e !important;
+  border-color: #455a64 !important;
+}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 20% 30%,rgba(255,255,255,0.25),transparent 20%),
+    radial-gradient(circle at 80% 20%,rgba(255,255,255,0.18),transparent 20%),
+    radial-gradient(circle at 50% 80%,rgba(255,255,255,0.15),transparent 20%);
+  animation:bgFloat 12s linear infinite;
+  z-index:-1;
+}
+
+@keyframes bgFloat{
+  0%{transform:translateY(0);}
+  50%{transform:translateY(-20px);}
+  100%{transform:translateY(0);}
+}
+
+header{
+  background:#5ca85c;
+  color:white;
+  padding:15px;
+  text-align:center;
+  font-size:30px;
+  font-weight:bold;
+}
+
+nav{
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:10px;
+  background:#dff5d8;
+  padding:10px;
+}
+
+nav button{
+  padding:10px 15px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  background:#70bf70;
+  color:white;
+  font-size:16px;
+}
+
+nav button:hover{
+  background:#4c944c;
+}
+
+.page{
+  display:none;
+  padding:20px;
+}
+
+.active{
+  display:block;
+}
+
+.status{
+  background:white;
+  padding:15px;
+  border-radius:15px;
+  margin:20px;
+  box-shadow:0 0 10px rgba(0,0,0,0.1);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:30px;
+  font-size:18px;
+}
+
+/* 倒數計時器樣式 */
+.timer-container {
+  display: flex;
+  align-items: center;
+  gap:8px;
+  font-weight: bold;
+  padding: 5px 15px;
+  border-radius: 20px;
+  background: #edf7ed;
+  color: #1e4620;
+}
+body.night-mode .timer-container {
+  background: #2c3e50;
+  color: #ff8a80;
+  border: 1px solid #ff5252;
+}
+
+.farm-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:15px;
+  padding:20px;
+}
+
+.plot{
+  background:#c8a97e;
+  border-radius:18px;
+  height:210px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px;
+  color:white;
+  font-weight:bold;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 5px 10px rgba(0,0,0,0.15);
+}
+
+.soil{
+  width:90%;
+  height:60px;
+  background:#8b5a2b;
+  border-radius:50%;
+  position:absolute;
+  bottom:18px;
+}
+
+.crop-visual{
+  font-size:55px;
+  z-index:2;
+  animation:bounce 2s infinite;
+}
+
+.seedling{
+  color:#79d95d;
+}
+
+.withered-bg {
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background: rgba(94, 73, 52, 0.7) !important;
+  z-index: 1;
+}
+
+.ready-field{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  height:100px;
+  background:linear-gradient(to top,#4caf50,#90ee90);
+}
+
+.water-effect{
+  position:absolute;
+  top:10px;
+  font-size:28px;
+  animation:waterDrop 1s infinite;
+  z-index:5;
+}
+
+@keyframes bounce{
+  0%,100%{transform:translateY(0px);}
+  50%{transform:translateY(-5px);}
+}
+
+@keyframes waterDrop{
+  0%{transform:translateY(0);opacity:1;}
+  100%{transform:translateY(20px);opacity:0;}
+}
+
+.plot button{
+  margin-top:8px;
+  padding:8px 12px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  background:white;
+  color:#5c7c36;
+  font-weight:bold;
+  z-index:3;
+}
+
+.inventory,.kitchen,.shop,.leaderboard{
+  background:white;
+  border-radius:15px;
+  padding:20px;
+  margin:20px;
+  box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+.recipe-grid,.shop-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  gap:15px;
+}
+
+.recipe,.shop-item{
+  border:1px solid #ddd;
+  border-radius:10px;
+  padding:15px;
+  background:#fafafa;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.message{
+  margin-top:15px;
+  font-weight:bold;
+  color:#3c7a3c;
+  text-align:center;
+  font-size:18px;
+}
+
+body.night-mode .message {
+  color: #81c784;
+}
+
+#startScreen,#pauseScreen,#questionModal{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index:999;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+#startScreen{
+  background:rgba(0,0,0,0.8);
+}
+
+#pauseScreen{
+  background:rgba(0,0,0,0.7);
+  display:none;
+}
+
+#questionModal{
+  background:rgba(0,0,0,0.7);
+  display:none;
+}
+
+.modal-box{
+  background:white;
+  padding:30px;
+  border-radius:20px;
+  text-align:center;
+  max-width:700px;
+  width:90%;
+  max-height:85vh;
+  overflow-y:auto;
+}
+
+.modal-box button{
+  padding:12px 25px;
+  border:none;
+  border-radius:12px;
+  background:#5ca85c;
+  color:white;
+  font-size:18px;
+  cursor:pointer;
+  margin-top:15px;
+}
+
+.question-option{
+  display:block;
+  width:100%;
+  margin-top:10px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#dff5d8;
+  cursor:pointer;
+  font-size:16px;
+  text-align:center;
+}
+
+body.night-mode .question-option {
+  background: #34495e;
+  color: #fff;
+}
+
+.question-option:hover{
+  background:#bfeab4;
+}
+
+body.night-mode .question-option:hover {
+  background: #455a64;
+}
+
+.cook-animation{
+  text-align:center;
+  font-size:70px;
+  margin-top:20px;
+  animation:cookMove 1s infinite alternate;
+}
+
+@keyframes cookMove{
+  from{transform:rotate(-5deg);}
+  to{transform:rotate(5deg);}
+}
+
+.serve-dish{
+  text-align:center;
+  font-size:70px;
+  margin-top:20px;
+  animation:bounce 1s infinite;
+}
+
+.inventory-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:15px;
+}
+
+.inventory-card{
+  background:#f8fff7;
+  border-radius:15px;
+  padding:15px;
+  text-align:center;
+  box-shadow:0 3px 8px rgba(0,0,0,0.1);
+  border:2px solid #dff5d8;
+}
+
+.inventory-card .emoji{
+  font-size:50px;
+  margin-bottom:10px;
+}
+
+.inventory-card h4{
+  margin:5px 0;
+}
+
+/* 遊戲說明專用樣式 */
+.game-instructions {
+  text-align: left;
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 15px 0;
+  font-size: 15px;
+  border-left: 5px solid #5ca85c;
+}
+.game-instructions h3 {
+  margin-top: 0;
+  color: #2e7d32;
+}
+.game-instructions ul {
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+.game-instructions li {
+  margin-bottom: 5px;
+}
+
+/* 排行榜排版樣式 */
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 15px;
+}
+.leaderboard-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #fdfdfd;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  font-size: 16px;
+}
+.leaderboard-item.is-me {
+  border: 2px solid #ffb74d !important;
+  background: #fffde6 !important;
+  font-weight: bold;
+}
+.rank-1 { color: #d4af37; font-weight: bold; }
+.rank-2 { color: #aaa9ad; font-weight: bold; }
+.rank-3 { color: #b08d57; font-weight: bold; }
+</style>
+</head>
+
+<body>
+
+<div id="startScreen">
+  <div class="modal-box">
+    <h1>🥕 歡迎來到營養開心農場 🥦</h1>
+    <div style="font-size:60px; margin: 10px 0;">🥗</div>
+    <p style="line-height:1.6; margin: 5px 0;">
+      透過播種、收穫與料理製作，學習健康知識！<br>
+      精選 150 題完全不重複核心營養題庫＋10 道健康料理！
+    </p>
+    
+    <div class="game-instructions">
+      <h3>🎮 遊戲玩法說明：</h3>
+      <ul>
+        <li><strong>🌱 經營農場：</strong>在空土地點擊「播種」並選擇作物，回答營養問題正確即可播種。點擊「澆水」並答對問題可使作物成熟，最後「收穫」能賺取金錢與經驗值。</li>
+        <li><strong>⚠️ 答錯枯死機制 (動態消減錯誤)：</strong>照顧植物時（如澆水），若目前該土地累積**錯誤達到 3 次**，種子就會不幸**枯死 🍂**。但在過程中**只要答對，就可以扣掉一次錯誤記錄**（最低歸零），就像加血機制一樣，請謹慎答題喔！</li>
+        <li><strong>🛒 商店採購：</strong>收穫需要消耗種子。當種子不足時，可前往商店花費 10 元購買新種子。</li>
+        <li><strong>🍳 健康廚房：</strong>利用收穫的蔬菜食材，對照食譜製作 10 道美味的健康料理，研發成功可獲得大量經驗值。料理做完後可以在廚房自由出售，也可以一鍵全部賣出換現金！</li>
+        <li><strong>🎒 背包查看：</strong>隨時點擊背包，確認目前擁有的種子數量、食材儲備以及精緻料理的存貨狀況。</li>
+        <li><strong>🏆 雲端即時排行榜：</strong>本遊戲已連線至雲端資料庫，您的暱稱與金錢將即時與全台灣的玩家一起進行實時大排行！</li>
+        <li><strong>👀 護眼健康提醒：</strong>為了您的視力健康，每遊玩 <strong>15分鐘（白天）</strong>，農場將切換為 <strong>3分鐘（黑夜）</strong>。黑夜期間請暫時放下手機或離開電腦，閉眼休息或遠眺綠色植物喔！</li>
+      </ul>
+    </div>
+    
+    <button onclick="startGame()">開始遊戲</button>
+  </div>
+</div>
+
+<div id="pauseScreen">
+  <div class="modal-box">
+    <h1>⏸ 遊戲已暫停</h1>
+    <button onclick="resumeGame()">繼續遊戲</button>
+  </div>
+</div>
+
+<div id="questionModal">
+  <div class="modal-box">
+    <div id="questionEmoji" style="font-size:60px;"></div>
+    <h2 id="questionText"></h2>
+    <div id="questionOptions"></div>
+  </div>
+</div>
+
+<header>🥕 營養開心農場 🥦</header>
+
+<nav>
+  <button onclick="pauseGame()">⏸ 暫停</button>
+  <button onclick="showPage('farmPage')">🌱 農場</button>
+  <button onclick="showPage('shopPage')">🛒 商店</button>
+  <button onclick="showPage('kitchenPage')">🍳 廚房</button>
+  <button onclick="showPage('inventoryPage')">🎒 背包</button>
+  <button onclick="showPage('leaderboardPage')">🏆 排行榜</button>
+</nav>
+
+<div class="status">
+  <span>👤 玩家：<b id="playerNameDisplay">載入中...</b></span>
+  <span>💰 金錢：<span id="money">100</span></span>
+  <span>⭐ 經驗值：<span id="exp">0</span></span>
+  <span class="timer-container">
+    <span id="timerPhaseIcon">☀️</span> 
+    <span id="timerPhaseText">白天模式</span>：
+    <span id="gameTimer">15:00</span>
+  </span>
+</div>
+
+<div id="farmPage" class="page active">
+  <h2>🌱 我的農場</h2>
+  <div class="farm-grid" id="farmGrid"></div>
+</div>
+
+<div id="shopPage" class="page">
+  <h2>🛒 商店</h2>
+  <div class="shop">
+    <div class="shop-grid" id="shopGrid"></div>
+    <div id="shopMessage" class="message"></div>
+  </div>
+</div>
+
+<div id="kitchenPage" class="page">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+    <h2>🍳 健康廚房</h2>
+    <button onclick="sellAllDishes()" style="background:#ff9800; color:white; border:none; padding:10px 20px; font-size:16px; font-weight:bold; border-radius:10px; cursor:pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">💰 一鍵全數出售料理</button>
+  </div>
+  <div class="kitchen">
+    <div class="recipe-grid" id="recipeGrid"></div>
+    <div id="cookAnimationArea"></div>
+    <div id="cookMessage" class="message"></div>
+  </div>
+</div>
+
+<div id="inventoryPage" class="page">
+  <h2>🎒 背包</h2>
+  <div class="inventory">
+    <div class="inventory-grid" id="inventoryList"></div>
+  </div>
+</div>
+
+<div id="leaderboardPage" class="page">
+  <h2>🏆 全台玩家即時財富榜</h2>
+  <div class="leaderboard">
+    <p style="color:#666;">資料庫連線狀態：🟢 即時同步中 (資料每秒自動更新)</p>
+    <div class="leaderboard-list" id="leaderboardList">
+      <div class="leaderboard-item">正在連線至雲端伺服器...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let money = 100;
+let exp = 0;
+
+/* 日夜切換與倒數計時邏輯變數 */
+let isNight = false; 
+let timeLeft = 15 * 60; // 初始白天15分鐘 (900秒)
+let timerInterval = null;
+
+/* 玩家線上同步辨識碼變數 */
+let playerName = "玩家";
+let playerUid = "";
+
+const cropsData = {
+  cabbage:{name:'高麗菜',emoji:'🥬'},
+  tomato:{name:'番茄',emoji:'🍅'},
+  carrot:{name:'胡蘿蔔',emoji:'🥕'},
+  corn:{name:'玉米',emoji:'🌽'},
+  potato:{name:'馬鈴薯',emoji:'🥔'},
+  eggplant:{name:'茄子',emoji:'🍆'},
+  cucumber:{name:'小黃瓜',emoji:'🥒'},
+  onion:{name:'洋蔥',emoji:'🧅'},
+  pepper:{name:'青椒',emoji:'🫑'},
+  mushroom:{name:'香菇',emoji:'🍄'},
+  broccoli:{name:'花椰菜',emoji:'🥦'}
+};
+
+let inventory = {
+  seeds:{},
+  foods:{},
+  dishes:{} // 記錄各道料理擁有數量
+};
+
+Object.keys(cropsData).forEach(key=>{
+  inventory.seeds[key]=2;
+  inventory.foods[key]=0;
+});
+
+const recipes = [
+  {id:'salad',name:'蔬菜沙拉',icon:'🥗',need:{cabbage:2,carrot:1},exp:30,price:80},
+  {id:'soup',name:'番茄蔬菜湯',icon:'🍲',need:{tomato:2,onion:1},exp:40,price:110},
+  {id:'stirfry',name:'什錦炒青椒',icon:'🥘',need:{pepper:2,mushroom:1},exp:35,price:95},
+  {id:'curry',name:'健康馬鈴薯咖哩',icon:'🍛',need:{potato:2,carrot:1,onion:1},exp:50,price:140},
+  {id:'grill',name:'烤茄子小黃瓜',icon:'🍢',need:{eggplant:2,cucumber:1},exp:30,price:85},
+  {id:'stew',name:'玉米燉菇',icon:'🥣',need:{corn:2,mushroom:2},exp:45,price:125},
+  {id:'broccolimix',name:'蒜炒花椰菜',icon:'🥦',need:{broccoli:2,onion:1},exp:35,price:95},
+  {id:'potatosalad',name:'玉米馬鈴薯泥',icon:'🥣',need:{potato:2,corn:1},exp:40,price:105},
+  {id:'veggiepasta',name:'番茄青椒義大利麵',icon:'🍝',need:{tomato:2,pepper:1},exp:55,price:150},
+  {id:'hotpot',name:'農場大合煮',icon:'🍲',need:{cabbage:1,corn:1,broccoli:1,mushroom:1},exp:70,price:200}
+];
+
+// 初始化每道菜的擁有數量為 0
+recipes.forEach(r => {
+  inventory.dishes[r.id] = 0;
+});
+
+// ===================================================
+// 💡 150 題完全不重複、在地化健康營養核心題庫
+// ===================================================
+const templates = [
+  // --- 第一類：六大類食物與均衡飲食 (30題) ---
+  { q: '以下哪一種食物屬於「全穀雜糧類」？', image: '🥣', options: ['地瓜', '高麗菜', '雞肉'], answer: '地瓜' },
+  { q: '下列哪一個不屬於衛生福利部公布的六大類食物？', image: '🥗', options: ['精緻糖類', '乳品類', '油脂與堅果種子類'], answer: '精緻糖類' },
+  { q: '香蕉在六大類食物中歸屬於哪一類？', image: '🍌', options: ['水果類', '全穀雜糧類', '蔬菜類'], answer: '水果類' },
+  { q: '花生與芝麻主要富含哪一種營養成分，歸類於油脂類？', image: '🥜', options: ['脂肪', '蛋白質', '碳水化合物'], answer: '脂肪' },
+  { q: '每天建議攝取的蔬菜量，應達到幾份（一碗約一份）？', image: '🥦', options: ['3-5份', '1份', '10份'], answer: '3-5份' },
+  { q: '天天吃五蔬果是指每天要吃幾份蔬菜 and 水果？', image: '🍎', options: ['3份蔬菜2份水果', '5份蔬菜', '5份水果'], answer: '3份蔬菜2份水果' },
+  { q: '挑選全穀雜糧時，以下哪一種是較健康的「未精製」選擇？', image: '🌾', options: ['糙米', '白米', '白麵條'], answer: '糙米' },
+  { q: '下列哪一種食物在營養分類上，與白米飯最接近？', image: '🥔', options: ['馬鈴薯', '豆腐', '菠菜'], answer: '馬鈴薯' },
+  { q: '燕麥片屬於六大類食物中的哪一類？', image: '🥣', options: ['全穀雜糧類', '蔬菜類', '油脂類'], answer: '全穀雜糧類' },
+  { q: '四季豆和黃豆雖然名字都有豆，但四季豆屬於哪一類？', image: '🥢', options: ['蔬菜類', '豆魚蛋肉類', '全穀雜糧類'], answer: '蔬菜類' },
+  { q: '酪梨因為脂肪含量高，在分類上屬於哪一類？', image: '🥑', options: ['油脂與堅果種子類', '水果類', '蔬菜類'], answer: '油脂與堅果種子類' },
+  { q: '以下哪一種豆類屬於「豆魚蛋肉類」，能提供優質蛋白質？', image: '🫘', options: ['黑豆', '紅豆', '綠豆'], answer: '黑豆' },
+  { q: '紅豆 and 綠豆在營養分類上主要屬於哪一類？', image: '🫘', options: ['全穀雜糧類', '蔬菜類', '豆魚蛋肉類'], answer: '全穀雜糧類' },
+  { q: '日常飲食提倡「五穀雜糧」，主要是為了比白米攝取更多什麼？', image: '🌾', options: ['膳食纖維與B群', '蛋白質', '熱量'], answer: '膳食纖維與B群' },
+  { q: '多吃深綠色蔬菜可以幫身體補充哪種微量營養素？', image: '🥬', options: ['維生素與鐵質', '飽和脂肪', '膽固醇'], answer: '維生素與鐵質' },
+  { q: '關於水果的攝取，以下哪種觀念最健康？', image: '🍊', options: ['直接吃新鮮水果', '喝純過濾果汁', '吃水果乾'], answer: '直接吃新鮮水果' },
+  { q: '每天建議飲用多少優質乳品，以補充鈣質？', image: '🥛', options: ['1.5至2杯', '不需要喝', '5杯以上'], answer: '1.5至2杯' },
+  { q: '下列哪一種食物是純度較高、適合當作鈣質來源的乳品？', image: '🧀', options: ['鮮乳', '煉乳', '奶精'], answer: '鮮乳' },
+  { q: '優格與優酪乳除了補充鈣質，還含有哪種對腸道好的成分？', image: '🥛', options: ['益生菌', '膳食纖維', '維生素D'], answer: '益生菌' },
+  { q: '我的餐盤口訣中，每餐的水果量應該多大？', image: '🍉', options: ['拳頭大', '手掌大', '吃到飽'], answer: '拳頭大' },
+  { q: '每餐的蔬菜量在「我的餐盤」建議中，應該比水果多還是少？', image: '🥗', options: ['比水果多一點', '比水果少一點', '一樣多'], answer: '比水果多一點' },
+  { q: '每天吃一小把堅果，能為身體帶來什麼好處？', image: '🌰', options: ['補充優質脂肪酸', '降低體重', '補充大量水分'], answer: '補充優質脂肪酸' },
+  { q: '南瓜在「我的餐盤」中，應該算在什麼類別？', image: '🎃', options: ['全穀雜糧類', '蔬菜類', '水果類'], answer: '全穀雜糧類' },
+  { q: '玉米屬於哪一類食物？', image: '🌽', options: ['全穀雜糧類', '蔬菜類', '水果類'], answer: '全穀雜糧類' },
+  { q: '芋頭和山藥在飲食分類中，主要功能是提供什麼？', image: '🍠', options: ['澱粉（碳水化合物）', '優質蛋白質', '大量油脂'], answer: '澱粉（碳水化合物）' },
+  { q: '素食者如果想補充蛋白質，最推薦攝取哪種原型食物？', image: '🫘', options: ['黃豆及其製品', '蒟蒻', '冬粉'], answer: '黃豆及其製品' },
+  { q: '以下哪一種蔬菜的膳食纖維含量相對較高？', image: '🥦', options: ['花椰菜', '冬瓜', '大白菜'], answer: '花椰菜' },
+  { q: '下列何者不是「天天五蔬果」的正確解釋？', image: '🍇', options: ['每天吃五種紅色的水果', '每天3份蔬菜加2份水果', '日常多元攝取'], answer: '每天吃五種紅色的水果' },
+  { q: '為什麼建議點心時間可以選擇堅果而非餅乾？', image: '🥜', options: ['堅果營養密度較高', '堅果完全沒有熱量', '堅果味道比較甜'], answer: '堅果營養密度較高' },
+  { q: '健康飲食強調「吃在地、吃當季」，主要是因為什麼？', image: '🌍', options: ['新鮮且營養保留較完整', '價格一定最貴', '比較耐放'], answer: '新鮮且營養保留較完整' },
+
+  // --- 第二類：三大營養素與熱量觀念 (30題) ---
+  { q: '人體主要的熱量來源（佔比最高）通常是哪一種營養素？', image: '🍚', options: ['碳水化合物', '維生素', '礦物質'], answer: '碳水化合物' },
+  { q: '肌肉生長、組織修復最不可缺的營養素是什麼？', image: '🥩', options: ['蛋白質', '脂肪', '纖維素'], answer: '蛋白質' },
+  { q: '每公克的碳水化合物在體內可以產生多少大卡的熱量？', image: '🍞', options: ['4大卡', '9大卡', '7大卡'], answer: '4大卡' },
+  { q: '每公克的蛋白質可以提供人體多少大卡的熱量？', image: '🥚', options: ['4大卡', '9大卡', '2大卡'], answer: '4大卡' },
+  { q: '每公克的脂肪能釋放出多少大卡的熱量？', image: '🧈', options: ['9大卡', '4大卡', '0大卡'], answer: '9大卡' },
+  { q: '有些營養素完全沒有熱量，但對生理機能至關重要，例如？', image: '🧪', options: ['維生素', '蛋白質', '脂肪'], answer: '維生素' },
+  { q: '下列哪一項不是脂肪長在人體內的主要功能？', image: '🛡️', options: ['合成肌肉組織', '保護內臟器官', '維持體溫'], answer: '合成肌肉組織' },
+  { q: '運動後補充熱量與營養，最理想的組合是哪兩者？', image: '🏃', options: ['碳水化合物＋蛋白質', '純脂肪', '只喝水'], answer: '碳水化合物＋蛋白質' },
+  { q: '所謂的「低GI」食物，主要是指哪種營養素消化吸收較慢？', image: '🍠', options: ['醣類（碳水化合物）', '脂肪', '蛋白質'], answer: '醣類（碳水化合物）' },
+  { q: '膳食纖維屬於哪一種大類營養素的延伸，但人體無法消化？', image: '🌾', options: ['碳水化合物', '蛋白質', '維生素'], answer: '碳水化合物' },
+  { q: '長期缺乏蛋白質，可能會導致人體出現什麼狀況？', image: '⚠️', options: ['肌肉流失、免疫力下降', '骨質疏鬆', '視力模糊'], answer: '肌肉流失、免疫力下降' },
+  { q: '人體無法自行合成、必須從飲食攝取的胺基酸稱為？', image: '🧬', options: ['必需胺基酸', '非必需胺基酸', '高能胺基酸'], answer: '必需胺基酸' },
+  { q: '以下哪一種脂肪酸通常被認為是對心血管較好的非飽和脂肪？', image: '🫒', options: ['橄欖油中的油酸', '豬油中的飽和脂肪', '人造奶油中的反式脂肪'], answer: '橄欖油中的油酸' },
+  { q: '油炸食品 and 烘焙糕點中常見的哪種脂肪，對健康危害最大？', image: '🍩', options: ['反式脂肪', '不飽和脂肪', '植物油'], answer: '反式脂肪' },
+  { q: '人體內過多無法消耗的熱量，最後會轉化為什麼形式儲存？', image: '⚖️', options: ['脂肪', '肌肉', '水分'], answer: '脂肪' },
+  { q: '什麼是基礎代謝率（BMR）？', image: '💤', options: ['維持生命基本運作所需熱量', '運動時消耗的熱量', '消化食物需要的熱量'], answer: '維持生命基本運作所需熱量' },
+  { q: '當每日攝取的總熱量大於消耗的總熱量時，體重通常會？', image: '📈', options: ['增加', '減少', '不變'], answer: '增加' },
+  { q: '減重時完全不吃任何油脂，可能會帶來什麼副作用？', image: '💆', options: ['皮膚乾燥、荷爾盟失調', '肌肉過度生長', '視力突然變好'], answer: '皮膚乾燥、荷爾盟失調' },
+  { q: '想要增肌的人，除了做阻力訓練，飲食中需要加強什麼？', image: '💪', options: ['蛋白質', '含糖飲料', '純脂肪'], answer: '蛋白質' },
+  { q: '大豆蛋白、魚肉、雞蛋都被稱為「優質蛋白質」是因為？', image: '🍳', options: ['含有人體所需的必需胺基酸', '價格非常昂貴', '熱量最高'], answer: '含有人體所需的必需胺基酸' },
+  { q: '加工食品包裝上的「營養標示」，主要用來呈現什麼？', image: '🏷️', options: ['食物成分與熱量、營養素', '食物的烹飪食譜', '生產工廠的面積'], answer: '食物成分與熱量、營養素' },
+  { q: '若營養標示寫著一份含有5克脂肪，這份脂肪會提供幾大卡？', image: '🔢', options: ['45大卡', '20大卡', '5大卡'], answer: '45大卡' },
+  { q: '以下哪一種食物含有的主要營養素是「優質不飽和脂肪」？', image: '🐟', options: ['鮭魚', '五花肉', '椰子油'], answer: '鮭魚' },
+  { q: '足夠的膳食纖維有什麼生理上的好處？', image: '💩', options: ['促進腸道蠕動、幫助排便', '加速肌肉合成', '提供大量體能熱量'], answer: '促進腸道蠕動、幫助排便' },
+  { q: '下列哪種糖類屬於精跡糖，應盡量減少攝取？', image: '🍬', options: ['手搖飲中的高果糖糖漿', '蘋果裡面的天然果糖', '鮮奶中的乳糖'], answer: '手搖飲中的高果糖糖漿' },
+  { q: '長時間劇烈運動時，身體最快用來轉化為能量的營養素是？', image: '⚡', options: ['醣類（肝醣）', '體脂肪', '骨骼蛋白質'], answer: '醣類（肝醣）' },
+  { q: '牛奶中的「乳糖」如果讓部分人拉肚子，這通常稱為？', image: '🥛', options: ['乳糖不耐症', '牛奶過敏', '食物中毒'], answer: '乳糖不耐症' },
+  { q: '下列何者屬於複合式、富含纖維的優質碳水化合物？', image: '🍠', options: ['烤地瓜', '白砂糖', '棉花糖'], answer: '烤地瓜' },
+  { q: '為什麼不建議靠「完全不吃碳水化合物」來長期減肥？', image: '⚠️', options: ['容易導致活力不足、情緒波動', '會讓脂肪長更快', '會導致骨折'], answer: '容易導致活力不足、情緒波動' },
+  { q: '人體主要由大約多少比例的水分組成？', image: '💧', options: ['60% - 70%', '20% - 30%', '95%以上'], answer: '60% - 70%' },
+
+  // --- 第三類：微量元素：維生素與礦物質 (30題) ---
+  { q: '維生素A對人體的主要保健功效是什麼？', image: '👁️', options: ['維持暗處視覺與眼睛健康', '幫助骨骼鈣化', '幫助傷口凝血'], answer: '維持暗處視覺與眼睛健康' },
+  { q: '人體皮膚接觸適度陽光照射後，可以自行合成哪種維生素？', image: '☀️', options: ['維生素D', '維生素C', '維生素E'], answer: '維生素D' },
+  { q: '缺乏哪一種維生素可能會導致「壞血病」、牙齦容易出血？', image: '🍋', options: ['維生素C', '維生素A', '維生素B12'], answer: '維生素C' },
+  { q: '維生素B群在人體內主要扮演什麼角色？', image: '🔋', options: ['協助能量代謝的輔酶', '直接燃燒產生熱量', '構成骨骼的原料'], answer: '協助能量代謝的輔酶' },
+  { q: '主要存在於動物性食物中，全素食者特別需要額外補充的維生素是？', image: '🥩', options: ['維生素B12', '維生素C', '維生素E'], answer: '維生素B12' },
+  { q: '以下哪一組維生素屬於「脂溶性維生素」，需要油脂協助吸收？', image: '🧪', options: ['維生素A、D、E、K', '維生素B群與C', '維生素C與D'], answer: '維生素A、D、E、K' },
+  { q: '多攝取深綠色蔬菜 and 深海魚，能補充哪種對凝血很有幫助的維生素？', image: '🥦', options: ['維生素K', '維生素C', '維生素B1'], answer: '維生素K' },
+  { q: '哪一種礦物質是構成人體骨骼與牙齒最主要的成分？', image: '🦴', options: ['鈣', '鐵', '鋅'], answer: '鈣' },
+  { q: '人體缺乏哪一種礦物質時，容易引發貧血、容易疲倦？', image: '🩸', options: ['鐵', '鈣', '鈉'], answer: '鐵' },
+  { q: '哪種礦物質與體內水分平衡、血壓調節密切相關，主要來自食鹽？', image: '🧂', options: ['鈉', '鎂', '碘'], answer: '鈉' },
+  { q: '為了預防大脖子病（甲狀腺腫大），食鹽中通常會添加什麼礦物質？', image: '🧂', options: ['碘', '氟', '鐵'], answer: '碘' },
+  { q: '哪種礦物質對生長發育、免疫系統與男性生殖系統健康很重要？', image: '🦪', options: ['鋅', '鈣', '硒'], answer: '鋅' },
+  { q: '香蕉 and 馬鈴薯中含有豐富的哪種礦物質，有助於排出多餘的鈉？', image: '🍌', options: ['鉀', '鈣', '鐵'], answer: '鉀' },
+  { q: '喝牛奶或吃鈣片時，搭配哪種維生素可以促進鈣質的吸收率？', image: '🥛', options: ['維生素D', '維生素B6', '維生素E'], answer: '維生素D' },
+  { q: '吃素的人若想提高植物性鐵質的吸收率，飯後可以搭配什麼？', image: '開?', options: ['富含維生素C的水果', '濃茶', '黑咖啡'], answer: '富含維生素C的水果' },
+  { q: '下列關於水溶性維生素（如B群、C）的敘述何者正確？', image: '💦', options: ['過量時容易隨尿液排出體外', '會在肝臟大量儲存', '不需要天天攝取'], answer: '過量時容易隨尿液排出體外' },
+  { q: '以下哪種食物是補充維生素E（抗氧化）的好來源？', image: '🌻', options: ['植物油與堅果類', '白米飯', '雞胸肉'], answer: '植物油與堅果類' },
+  { q: '抗氧化三劍客通常是指哪三種維生素？', image: '🛡️', options: ['維生素A、C、E', '維生素B1、B2、B6', '維生素D、E、K'], answer: '維生素A、C、E' },
+  { q: '孕婦在懷孕初期特別需要補充哪種B群維生素，以預防胎兒神經管缺陷？', image: '🤰', options: ['葉酸（B9）', '生物素', '煙鹼酸'], answer: '葉酸（B9）' },
+  { q: '長期偏食、不吃蔬菜水果，最有可能導致身體缺乏什麼？', image: '⚠️', options: ['維生素C與膳製纖維', '優質蛋白質', '飽和脂肪酸'], answer: '維生素C與膳製纖維' },
+  { q: '哪一種礦物質能穩定神經與肌肉功能，常被稱為「天然的鎮靜劑」？', image: '🥑', options: ['鎂', '鈉', '銅'], answer: '鎂' },
+  { q: '兒童發育時期如果嚴重缺乏鈣質，可能會導致什麼疾病？', image: '🦴', options: ['佝僂病', '夜盲症', '腳氣病'], answer: '佝僂病' },
+  { q: '缺乏維生素B1可能會引發什麼症狀？', image: '⚠️', options: ['腳氣病、神經發炎', '壞血病', '乾眼症'], answer: '腳氣病、神經發炎' },
+  { q: '常吃海帶、紫菜等海藻類食物，主要是為了補充什麼微量元素？', image: '🍙', options: ['碘', '維生素C', '反式脂肪'], answer: '碘' },
+  { q: '熬夜、壓力大時，身體代謝消耗較快，可以適量補充什麼維生素？', image: '⚡', options: ['維生素B群', '維生素K', '維生素D'], answer: '維生素B群' },
+  { q: '為什麼不建議過量盲目服用大劑量的脂溶性維生素補充劑？', image: '💊', options: ['容易在體內蓄積引起中毒', '會阻礙水分吸收', '會導致熱量過高'], answer: '容易在體內蓄積引起中毒' },
+  { q: '胡蘿蔔中的β-胡蘿蔔素，在人體內可以轉化為何種維生素？', image: '🥕', options: ['維生素A', '維生素C', '維生素D'], answer: '維生素A' },
+  { q: '市售牙膏中常添加哪種礦物質成分，有助於預防齲齒（蛀牙）？', image: '🪥', options: ['氟', '鉻', '鈉'], answer: '氟' },
+  { q: '下列哪種飲食習慣最容易導致「鈉」攝取過多、增加高血壓風險？', image: '🧂', options: ['常吃加工醃漬品、沾醬料', '多吃新鮮水果', '常喝純白開水'], answer: '常吃加工醃漬品、沾醬料' },
+  { q: '植物性食物中的鐵質（非血紅素鐵）主要存在於哪裡？', image: '🥬', options: ['紅莧菜、菠菜等深色菜', '豬血', '牛肉'], answer: '紅莧菜、菠菜等深色菜' },
+
+  // --- 第四類：健康生活習慣與水分管理 (30題) ---
+  { q: '口渴時，最健康的補水選擇是什麼？', image: '💧', options: ['白開水', '運動飲料', '無糖微氣泡可樂'], answer: '白開水' },
+  { q: '一般成年人每天建議的基本飲水量大約是多少？', image: '🥛', options: ['2000毫升左右', '500毫升就夠', '越多越好（10公升）'], answer: '2000毫升左右' },
+  { q: '運動流汗後，若運動時間不超過一小時，應優先補充什麼？', image: '🏃', options: ['純白開水', '高濃度高糖果汁', '碳酸飲料'], answer: '純白開水' },
+  { q: '以下哪一種情況，會讓身體需要比平時補充更多水分？', image: '☀️', options: ['發燒、腹瀉或劇烈運動出汗', '看電視時', '睡覺前'], answer: '發燒、腹瀉或劇烈運動出汗' },
+  { q: '如何透過尿液顏色初步判斷身體水分是否充足？', image: '🧪', options: ['清澈澄黃或微黃代表充足', '越深咖啡色越好', '完全無色代表中毒'], answer: '清澈澄黃或微黃代表充足' },
+  { q: '每天吃早餐對身體有什麼好處？', image: '🍳', options: ['喚醒大腦與新陳代謝', '能讓人多睡一小時', '能完全防止近視'], answer: '喚醒大腦與新陳代謝' },
+  { q: '世界衛生組織建議，每人每天的食鹽攝取量應控制在幾克以下？', image: '🧂', options: ['6公克（約一茶匙）', '20公克', '不限制'], answer: '6公克（約一茶匙）' },
+  { q: '長期吃太鹹、鹽分（鈉）攝取過高，容易引起什麼慢性病？', image: '❤️', options: ['高血壓與心血管疾病', '糖尿病', '夜盲症'], answer: '高血壓與心血管疾病' },
+  { q: '維持身體健康，除了均衡飲食，每天還建議進行多久的中強度運動？', image: '🚴', options: ['30分鐘以上', '不需要運動', '5小時以上'], answer: '30分鐘以上' },
+  { q: '充足的睡眠對身體各機能的修復至關重要，青少年一般建議睡足幾小時？', image: '🛌', options: ['8-9小時', '4小時', '14小時'], answer: '8-9小時' },
+  { q: '吃東西時提倡「細嚼慢嚥」，這對身體有什麼直接好處？', image: '🦷', options: ['減輕胃部負擔、容易產生飽足感', '會讓食物變多', '能降低食物熱量'], answer: '減輕胃部負擔、容易產生飽足感' },
+  { q: '邊看電視、邊滑手機一邊吃東西，容易造成什麼後果？', image: '📺', options: ['分心導致過度進食', '加速食物消化', '提升食物營養價值'], answer: '分心導致過度進食' },
+  { q: '經常飲用含糖飲料，最容易增加哪種代謝性慢性病的風險？', image: '🥤', options: ['第二型糖尿病與肥胖', '骨質疏鬆症', '氣喘'], answer: '第二型糖尿病與肥胖' },
+  { q: '久坐不動被稱為現代人的健康殺手，鍵議坐多久就該起來活動？', image: '🪑', options: ['40-50分鐘', '4小時', '一整天都不用'], answer: '40-50分鐘' },
+  { q: '關於飲酒，以下哪項敘述符合健康觀念？', image: '🍷', options: ['能不喝就不喝，過量傷肝傷心', '多喝可以清理血管', '酒精能代替水分'], answer: '能不喝就不喝，過量傷肝傷心' },
+  { q: '熬夜、作息不正常，容易對體內的哪一個解毒與代謝器官造成負擔？', image: '💤', options: ['肝臟', '胃', '皮膚'], answer: '肝臟' },
+  { q: '多去戶外曬太陽、散步，能同時促進身體哪兩方面的健康？', image: '🌳', options: ['心情愉悅與骨骼健康（維生素D）', '視力完全恢復與減肥', '長高與美白'], answer: '心情愉悅與骨骼健康（維生素D）' },
+  { q: '預防便祕最基礎的「生活三好」是指哪三樣？', image: '🚽', options: ['多纖維、多喝水、多運動', '多吃肉、多睡覺、多喝茶', '少吃米飯、多吃糖、少走路'], answer: '多纖維、多喝水、多運動' },
+  { q: '飯後立刻進行劇烈運動，可能會對身體造成什麼影響？', image: '開?', options: ['影響消化、引起胃痙攣', '加速肌肉生長', '讓視力變好'], answer: '影響消化、引起胃痙攣' },
+  { q: '所謂的「含糖飲料」通常是指添加了什麼糖的飲料？', image: '🧋', options: ['外加的精製糖（如砂糖、果糖）', '水果內天然的糖', '牛奶內的乳糖'], answer: '外加的精製糖（如砂糖、果糖）' },
+  { q: '多喝水能幫助身體排除代謝廢物，這主要是透過哪個器官過濾排出？', image: '🩺', options: ['腎臟（尿液）', '肺部', '大腸'], answer: '腎臟（尿液）' },
+  { q: '喝水應該採取怎樣的方式最符合身體生理機能？', image: '💧', options: ['分次、小口慢喝', '一口氣狂飲1公升', '等到極度口渴再喝'], answer: '分次、小口慢喝' },
+  { q: '購買包裝食品時，除了看價格，最應該先閱讀什麼？', image: '🏷️', options: ['有效日期與營養標示', '代言人的照片', '包裝花紋'], answer: '有效日期與營養標示' },
+  { q: '常吃宵夜、吃飽立刻躺下睡覺，最容易引發什麼消化系統問題？', image: '🤢', options: ['胃食道逆流', '急性闌尾炎', '食物過敏'], answer: '胃食道逆流' },
+  { q: '健康的體重控制，核心原則應該是？', image: '⚖️', options: ['合理的飲食調整搭配規律運動', '吃減肥藥不吃飯', '每天只喝水斷食'], answer: '合理的飲食調整搭配規律運動' },
+  { q: '減糖飲食中，主要建議減少攝取哪一類食物？', image: '🍰', options: ['糖果、糕點與含糖飲料', '深海魚類', '新鮮蔬菜'], answer: '糖果、糕點與含糖飲料' },
+  { q: '在外面點手搖飲料時，哪種甜度選擇最符合健康標準？', image: '🧋', options: ['無糖', '半糖', '全糖'], answer: '無糖' },
+  { q: '膳食纖維雖然不提供熱量，外能作為腸道中哪種好菌的食物？', image: '🦠', options: ['益生菌（腸道好菌）', '感冒病毒', '壞死細胞'], answer: '益生菌（腸道好菌）' },
+  { q: '抽菸或吸入二手菸，主要會對身體哪一個系統造成巨大的傷害？', image: ' lungs;', options: ['呼吸與心血管系統', '消化系統', '運動骨骼系統'], answer: '呼吸與心血管系統' },
+  { q: '規律的阻力運動（如重訓）對中老年人的骨骼與肌肉有什麼好處？', image: '👵', options: ['預防肌少症與骨質疏鬆', '會讓身高變高', '會讓血管變硬'], answer: '預防肌少症與骨質疏鬆' },
+
+  // --- 五類：飲食安全、烹飪與防癌迷思 (30題) ---
+  { q: '處理生熟食時，為了避免交叉污染，以下哪種做法才正確？', image: '🔪', options: ['生食與熟食使用不同的砧板刀具', '混用同一個砧板再用水沖洗', '先切生肉再切熟食'], answer: '生食與熟食使用不同的砧板刀具' },
+  { q: '食物中毒常見的原因之一是細菌滋生，細菌最喜歡的「危險溫度帶」是？', image: '🌡️', options: ['7℃ 至 60℃ 之間', '零下18℃', '100℃ 以上'], answer: '7℃ 至 60℃ 之間' },
+  { q: '冰箱冷凍庫的標準溫度通常應該設定在攝氏幾度以下？', image: '❄️', options: ['零下18度以下', '0度', '4度'], answer: '零下18度以下' },
+  { q: '冰箱冷藏室的溫度，建議維持在攝氏幾度以下較能抑制細菌？', image: '🧊', options: ['7度以下', '15度', '25度'], answer: '7度以下' },
+  { q: '以下哪一種烹調方式，最容易產生致癌物（如多環芳香烴）？', image: '🔥', options: ['高溫木炭大火燒烤', '清蒸', '水煮'], answer: '高溫木炭大火燒烤' },
+  { q: '發霉的年糕或花生，容易產生哪種具強烈肝毒性的致癌毒素？', image: '🥜', options: ['黃麴毒素', '肉毒桿菌素', '沙門氏菌'], answer: '黃麴毒素' },
+  { q: '馬鈴薯如果出現什麼狀況，會產生大量茄鹼毒素，絕對不能再吃？', image: '🥔', options: ['發芽或變綠', '外皮沾滿泥土', '形狀長得不圓'], answer: '發芽或變綠' },
+  { q: '醃製香腸、火腿時為了防腐常添加亞硝酸鹽，這類加工肉品屬於？', image: '🌭', options: ['一級致癌物，應減少食用', '優質蛋白質來源', '健康綠色食品'], answer: '一級致癌物，應減少食用' },
+  { q: '炒菜時如果看到油一直冒大煙，這代表什麼意思？', image: '🍳', options: ['油溫已過高變質', '菜會炒得比較香', '水分很充足'], answer: '油溫已過高變質' },
+  { q: '購買食品時看到包裝膨脹、罐頭鼓起，這代表可能發生什麼事？', image: '🥫', options: ['裡面受細菌污染產生氣體', '裡面加量不加價', '純屬正常現象'], answer: '裡面受細菌污染產生氣體' },
+  { q: '剩菜剩飯在室溫下放太久容易壞，建議多久之內要放進冰箱？', image: '🍱', options: ['2小時之內', '放隔夜再冰', '5天之內'], answer: '2小時之內' },
+  { q: '享用火鍋時，以下哪種吃法較安全衛生？', image: '🍲', options: ['使用公筷母匙、肉類徹底煮熟', '用自己的筷子夾生肉', '肉片稍微變色就半生吃'], answer: '使用公筷母匙、肉類徹底煮熟' },
+  { q: '貼近未煮熟的生雞蛋，最容易感染哪一種引發上吐下瀉的細菌？', image: '🥚', options: ['沙門氏菌', '肉毒桿菌', '金黃色葡萄球菌'], answer: '沙門氏菌' },
+  { q: '清洗蔬菜時，最有效去除農藥殘留的方法是什麼？', image: '🚰', options: ['以流動的水慢速沖洗10-15分鐘', '用大量鹽水浸泡一整天', '用強力清潔劑洗'], answer: '以流動的水慢速沖洗10-15分鐘' },
+  { q: '食品包裝上的「有效日期」是指什麼？', image: '📅', options: ['在此日期前確保食品安全與品質', '過了這天食物會立刻爆炸', '這是製造日期'], answer: '在此日期前確保食品安全與品質' },
+  { q: '罐頭食品如果能長期保存不需要加防腐劑，主要是開?什麼技術？', image: '🥫', options: ['商業高溫殺菌與密封真空', '加了大量鹽巴', '放了高科技晶片'], answer: '商業高溫殺菌與密封真空' },
+  { q: '現代高溫油炸的洋芋片、薯條，容易產生哪種可能致癌的化學物質？', image: '🍟', options: ['丙烯醯胺', '黃麴毒素', '亞硝酸鈉'], answer: '丙烯醯胺' },
+  { q: '廚房抹布如果長期不洗不曬乾，上面的細菌數量可能比什麼還多？', image: '🧽', options: ['馬桶座墊', '肥皂', '乾洗手液'], answer: '馬桶座墊' },
+  { q: '烘焙麵包或油炸時使用的油脂，若含有「氫化植物油」，可能藏有？', image: '🍞', options: ['反式脂肪', '必需胺基酸', '膳食纖維'], answer: '反式脂肪' },
+  { q: '未開封的油品如果放在瓦斯爐旁高溫曝曬，會加速發生什麼現象？', image: '🫗', options: ['油脂氧化酸敗（變質）', '油質變純淨', '容量自動變多'], answer: '油脂氧化酸敗（變質）' },
+  { q: '以下哪一種餐具材質，最不適合放進微波爐高溫加熱？', image: '⚡', options: ['帶有金屬邊框的瓷碗或不鏽鋼', '微波專用玻璃盒', '專用耐熱PP保鮮盒'], answer: '帶有金屬邊框的瓷碗或不鏽鋼' },
+  { q: '塑膠容器底部的三角形回收標誌中，哪一個號碼通常代表耐熱度較高的PP材質？', image: '♻️', options: ['5號', '1號', '3號'], answer: '5號' },
+  { q: '關於「少油烹調」，以下哪一個做法最符合少油原則？', image: '🥗', options: ['多用清蒸、水煮、涼拌', '多吃勾芡大火熱炒', '每餐都吃鹽酥雞'], answer: '多用清蒸、水煮、涼拌' },
+  { q: '烤肉時如果食物表面已經嚴重烤焦，應該怎麼處理？', image: '🥩', options: ['剪掉烤焦處不吃', '直接全部吃下去', '用水洗一洗再吃'], answer: '剪掉烤焦處不吃' },
+  { q: '經常吃高鹽醃漬食物（如鹹魚、醬菜），會大幅增加哪種癌症的風險？', image: '⚠️', options: ['胃癌', '皮膚癌', '血癌'], answer: '胃癌' },
+  { q: '世界衛生組織將加工肉品（香腸、培根）列為什麼等級的致癌物？', image: '🥓', options: ['第一級致癌物', '第三級（查無證據）', '完全無害食品'], answer: '第一級致癌物' },
+  { q: '洗手時只用水沖是不夠的，正確洗手應該要？', image: '🧼', options: ['搭配肥皂或洗手乳揉搓至少20秒', '只擦乾不用水', '沖水1秒鐘即可'], answer: '搭配肥皂或洗手乳揉搓至少20秒' },
+  { q: '真空包裝的食品若保存不當，最怕滋生哪種致命厭氧菌？', image: '🫘', options: ['肉毒桿菌', '大腸桿菌', '乳酸菌'], answer: '肉毒桿菌' },
+  { q: '生鮮魚蝦買回家如果沒有馬上要吃，應該如何存放？', image: '🐟', options: ['清洗密封後立刻放入冷凍庫', '放在廚房流理台上', '用報紙包著放室溫'], answer: '清洗密封後立刻放入冷凍庫' },
+  { q: '多吃富含抗氧化劑的蔬菜水果，對於身體防癌有什麼幫助？', image: '🥦', options: ['清除體內過多的自由基、保護細胞', '能讓癌細胞立刻變成好細胞', '沒有任何科學根據'], answer: '清除體內過多的自由基、保護細胞' }
+];
+
+const questions = [];
+templates.forEach(t=>{
+  questions.push({
+    question: `${t.q}`,
+    image: t.image,
+    options: [...t.options],
+    answer: t.answer
+  });
+});
+
+let questionPool=[];
+
+function shuffleQuestions(){
+  questionPool=[...questions];
+  for(let i=questionPool.length-1; i>0; i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [questionPool[i],questionPool[j]]=[questionPool[j],questionPool[i]];
+  }
+}
+
+shuffleQuestions();
+
+// 💡 擴充農地屬性，新增「wrongCount」用以追蹤累積答錯次數
+let farmPlots = Array(6).fill(null).map(()=>({state:'empty', crop:null, wrongCount: 0}));
+
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  if(pageId==='shopPage') renderShop();
+  if(pageId==='kitchenPage') renderKitchen();
+  if(pageId==='inventoryPage') renderInventory();
+}
+
+function updateStatus(){
+  document.getElementById('money').textContent=money;
+  document.getElementById('exp').textContent=exp;
+}
+
+// ===================================================
+// 🌐 FIREBASE 線上即時連線與核心邏輯
+// ===================================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCtRNt9WPTYvOwmHszua7GFBXV_VSyJG7U",
+  authDomain: "my-farm-60f39.firebaseapp.com",
+  databaseURL: "https://my-farm-60f39-default-rtdb.firebaseio.com",
+  projectId: "my-farm-60f39",
+  storageBucket: "my-farm-60f39.firebasestorage.app",
+  messagingSenderId: "1011250837269",
+  appId: "1:1011250837269:web:2b32f6ad7bbd574bc8db1c",
+  measurementId: "G-EGWNG3ESKX"
+};
+
+// 初始化 Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+function initOnlineLeaderboard() {
+  let savedName = localStorage.getItem('nutrition_farm_username');
+  let savedUid = localStorage.getItem('nutrition_farm_uid');
+  
+  if(!savedName) {
+    savedName = prompt("請輸入您的遊玩暱稱（例如：佳昀小廚神）：", "匿名農夫");
+    if(!savedName || savedName.trim() === "") savedName = "匿名農夫";
+    localStorage.setItem('nutrition_farm_username', savedName);
+  }
+  
+  if(!savedUid) {
+    savedUid = 'user_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('nutrition_farm_uid', savedUid);
+  }
+  
+  playerName = savedName;
+  playerUid = savedUid;
+  document.getElementById('playerNameDisplay').textContent = playerName;
+
+  uploadScoreToCloud();
+
+  database.ref('leaderboard').on('value', (snapshot) => {
+    const data = snapshot.val();
+    let scoresList = [];
+    if (data) {
+      Object.keys(data).forEach(uid => {
+        scoresList.push({
+          uid: uid,
+          name: data[uid].name,
+          money: data[uid].money
+        });
+      });
+    }
+    renderOnlineLeaderboard(scoresList);
+  });
+}
+
+function uploadScoreToCloud() {
+  if (playerUid) {
+    database.ref('leaderboard/' + playerUid).set({
+      name: playerName,
+      money: money
+    });
+  }
+}
+
+function renderOnlineLeaderboard(scoresList) {
+  const listEl = document.getElementById('leaderboardList');
+  if(!listEl) return;
+  listEl.innerHTML = '';
+  
+  scoresList.sort((a,b) => b.money - a.money);
+  const top10 = scoresList.slice(0, 10);
+  
+  if(top10.length === 0) {
+    listEl.innerHTML = '<div class="leaderboard-item">目前尚無線上玩家連線資料...</div>';
+    return;
+  }
+  
+  top10.forEach((item, index) => {
+    let div = document.createElement('div');
+    let isMeClass = (item.uid === playerUid) ? ' is-me' : '';
+    div.className = `leaderboard-item rank-${index+1}${isMeClass}`;
+    div.innerHTML = `<span>第 ${index+1} 名：${item.name} ${item.uid === playerUid ? '(我)' : ''}</span> <span>💰 ${item.money} 元</span>`;
+    listEl.appendChild(div);
+  });
+}
+
+function startGame(){
+  document.getElementById('startScreen').style.display='none';
+  initOnlineLeaderboard(); 
+  startTimer();
+}
+
+function pauseGame(){
+  document.getElementById('pauseScreen').style.display='flex';
+}
+
+function resumeGame(){
+  document.getElementById('pauseScreen').style.display='none';
+}
+
+function askQuestion(callback){
+  if(questionPool.length===0){
+    shuffleQuestions();
+  }
+
+  const q=questionPool.pop();
+  const modal=document.getElementById('questionModal');
+  modal.style.display='flex';
+  document.getElementById('questionEmoji').textContent=q.image;
+  document.getElementById('questionText').textContent=q.question;
+
+  const optDiv=document.getElementById('questionOptions');
+  optDiv.innerHTML='';
+
+  const shuffled=[...q.options].sort(()=>Math.random()-0.5);
+
+  shuffled.forEach(opt=>{
+    const btn=document.createElement('button');
+    btn.className='question-option';
+    btn.textContent=opt;
+    btn.onclick=()=>{
+      modal.style.display='none';
+      if(opt===q.answer){
+        exp+=10;
+        updateStatus();
+        uploadScoreToCloud(); 
+        alert('✅ 答對了！經驗值 +10');
+        callback(true);
+      }else{
+        alert(`❌ 答錯了！正確答案是：${q.answer}`);
+        callback(false);
+      }
+    };
+    optDiv.appendChild(btn);
+  });
+}
+
+/* 農場運作邏輯（新版扣血/補血式答錯機制） */
+function renderFarm(){
+  const grid=document.getElementById('farmGrid');
+  grid.innerHTML='';
+
+  farmPlots.forEach((plot,i)=>{
+    const div=document.createElement('div');
+    div.className='plot';
+
+    if(plot.state==='empty'){
+      div.innerHTML=`
+        <div class="soil"></div>
+        <div style="z-index:2;">🟫 空土地</div>
+        <button onclick="plantCrop(${i})">播種</button>
+      `;
+    }else if(plot.state==='planted'){
+      // 依據答錯次數顯示不同的花色與警告文字提示
+      let warningStyle = plot.wrongCount > 0 ? 'color: #ff9800; font-size:13px;' : 'color:white;';
+      div.innerHTML=`
+        <div class="soil"></div>
+        <div class="crop-visual seedling">🌱</div>
+        <div style="z-index:2; ${warningStyle}">
+          ${cropsData[plot.crop].emoji} ${cropsData[plot.crop].name} ${plot.wrongCount > 0 ? `<br>(⚠️錯誤 ${plot.wrongCount}/3)` : ''}
+        </div>
+        <button onclick="waterCrop(${i})">💧 澆水</button>
+      `;
+    }else if(plot.state==='withered'){
+      // 🍂 植物枯死場景
+      div.innerHTML=`
+        <div class="withered-bg"></div>
+        <div class="crop-visual" style="z-index:2;">🍂</div>
+        <div style="z-index:2; color:#ffc107; font-weight:bold;">種子已枯死</div>
+        <button onclick="clearWithered(${i})" style="background:#e57373; color:white;">🪓 清除枯枝</button>
+      `;
+    }else{
+      div.innerHTML=`
+        <div class="ready-field"></div>
+        <div class="crop-visual">${cropsData[plot.crop].emoji}</div>
+        <div style="z-index:2;">🌾 成熟啦！</div>
+        <button onclick="harvestCrop(${i})">收穫</button>
+      `;
+    }
+    grid.appendChild(div);
+  });
+}
+
+function plantCrop(i){
+  const availableSeeds=Object.keys(inventory.seeds).filter(k=>inventory.seeds[k]>0);
+
+  if(availableSeeds.length===0){
+    alert('背包裡沒有種子了，快去商店購買吧！');
+    return;
+  }
+
+  askQuestion(correct=>{
+    if(!correct) return;
+
+    const optDiv=document.getElementById('questionOptions');
+    document.getElementById('questionModal').style.display='flex';
+    document.getElementById('questionText').textContent='請選擇要播種的種子：';
+    optDiv.innerHTML='';
+
+    availableSeeds.forEach(k=>{
+      const btn=document.createElement('button');
+      btn.className='question-option';
+      btn.textContent=`${cropsData[k].emoji} ${cropsData[k].name} (剩餘 ${inventory.seeds[k]} 個)`;
+      btn.onclick=()=>{
+        inventory.seeds[k]--;
+        // 播種成功，重置答錯計數器
+        farmPlots[i]={ state:'planted', crop:k, wrongCount: 0 };
+        document.getElementById('questionModal').style.display='none';
+        renderFarm();
+      };
+      optDiv.appendChild(btn);
+    });
+  });
+}
+
+function waterCrop(i){
+  const plotDiv=document.querySelectorAll('.plot')[i];
+  const water=document.createElement('div');
+  water.className='water-effect';
+  water.innerHTML='💧💧💧';
+  plotDiv.appendChild(water);
+
+  setTimeout(()=>{
+    askQuestion(correct=>{
+      water.remove();
+      if(correct) {
+        // 💡 答對時：消減一次錯誤記錄（最低降到 0）
+        if (farmPlots[i].wrongCount > 0) {
+          farmPlots[i].wrongCount--;
+          alert(`💖 答對了！植物重新獲得養分，減少 1 次錯誤紀錄（目前累積錯誤: ${farmPlots[i].wrongCount}/3）。`);
+          renderFarm();
+        } else {
+          // 如果本來就沒錯，答對就正常進入成熟狀態
+          farmPlots[i].state='ready';
+          renderFarm();
+        }
+      } else {
+        // 💡 答錯時：累積錯誤次數
+        farmPlots[i].wrongCount++;
+        if(farmPlots[i].wrongCount >= 3){
+          farmPlots[i].state = 'withered';
+          alert('🍂 糟糕！本塊土地的錯誤次數已累積達到 3 次，種子已經不幸枯死了！\n請點擊「清除枯枝」重新整理土地。');
+        } else {
+          alert(`⚠️ 答錯了！目前累積答錯 ${farmPlots[i].wrongCount}/3 次。\n提示：下次答對可以扣掉 1 次錯誤！但若累積滿 3 次，植物就會完全枯死喔！`);
+        }
+        renderFarm();
+      }
+    });
+  },800);
+}
+
+function harvestCrop(i){
+  askQuestion(correct=>{
+    if(correct) {
+      inventory.foods[farmPlots[i].crop]++;
+      money+=25;
+      exp+=20;
+      farmPlots[i]={ state:'empty', crop:null, wrongCount: 0 };
+      updateStatus();
+      uploadScoreToCloud(); 
+      renderFarm();
+      alert('🎉 收成成功！獲得食材，金錢 +25，經驗值 +20');
+    } else {
+      // 💡 收穫時答錯也會計入錯誤次數
+      farmPlots[i].wrongCount++;
+      if(farmPlots[i].wrongCount >= 3){
+        farmPlots[i].state = 'withered';
+        alert('🍂 在收穫前夕因為連續答錯，植物最終枯死了...真可惜！');
+      } else {
+        // 如果收穫答錯但沒死，它會退回 planted 狀態讓玩家可以繼續澆水答對來補血
+        farmPlots[i].state = 'planted';
+        alert(`⚠️ 收穫答錯！植物狀態下滑（目前累積錯誤: ${farmPlots[i].wrongCount}/3）。可以再點擊澆水並答對來消減錯誤！`);
+      }
+      renderFarm();
+    }
+  });
+}
+
+// 一鍵清除枯死植物功能
+function clearWithered(i) {
+  farmPlots[i] = { state:'empty', crop:null, wrongCount: 0 };
+  renderFarm();
+  alert('🪓 土地已重新翻土整理乾淨，可以重新播種新生命囉！');
+}
+
+/* 商店邏輯 */
+function renderShop(){
+  const grid=document.getElementById('shopGrid');
+  grid.innerHTML='';
+
+  Object.keys(cropsData).forEach(k=>{
+    const item = document.createElement('div');
+    item.className='shop-item';
+    item.innerHTML=`
+      <p style="font-size:18px; font-weight:bold; margin: 0 0 10px 0;">${cropsData[k].emoji} ${cropsData[k].name} 種子</p>
+      <button onclick="buySeed('${k}')">💰 10 元購買</button>
+    `;
+    grid.appendChild(item);
+  });
+}
+
+function buySeed(k){
+  if(money>=10){
+    money-=10;
+    inventory.seeds[k]++;
+    updateStatus();
+    uploadScoreToCloud();
+    document.getElementById('shopMessage').textContent=`🛍️ 成功購買 ${cropsData[k].name} 種子！`;
+    renderShop();
+  }else{
+    alert('❌ 金錢不足！快去照顧農場或做菜答題賺錢吧！');
+  }
+}
+
+/* 廚房與高價出售功能邏輯 */
+function renderKitchen(){
+  const grid=document.getElementById('recipeGrid');
+  grid.innerHTML='';
+
+  recipes.forEach(r=>{
+    const div=document.createElement('div');
+    div.className='recipe';
+    let needText=Object.keys(r.need).map(k=>`${cropsData[k].emoji} ${cropsData[k].name} x${r.need[k]}`).join(', ');
+    let currentOwned = inventory.dishes[r.id] || 0;
+
+    div.innerHTML=`
+      <div>
+        <h3 style="margin:0 0 5px 0;">${r.icon} ${r.name}</h3>
+        <p style="color:#666; margin: 5px 0; font-size:14px;">需要食材: ${needText}</p>
+        <p style="color:#e68a00; font-weight:bold; margin: 5px 0; font-size:14px;">目前擁有: ${currentOwned} 份 (售價: 💰 ${r.price} 元)</p>
+      </div>
+      <div style="margin-top:10px;">
+        <button style="background:#5ca85c; color:#fff; width:100%; margin-bottom:5px; padding:8px;" onclick="cookDish('${r.id}')">🍳 開始製作</button>
+        ${currentOwned > 0 ? `<button style="background:#ffb74d; color:#fff; width:100%; padding:8px;" onclick="sellDish('${r.id}')">💰 出售 1 份</button>` : ''}
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function cookDish(id){
+  const r=recipes.find(x=>x.id===id);
+  let canCook=Object.keys(r.need).every(k=>inventory.foods[k]>=r.need[k]);
+
+  if(canCook){
+    Object.keys(r.need).forEach(k=>{
+      inventory.foods[k]-=r.need[k];
+    });
+
+    inventory.dishes[id]++;
+    exp+=r.exp;
+    updateStatus();
+    uploadScoreToCloud();
+
+    const area=document.getElementById('cookAnimationArea');
+    area.innerHTML=`<div class="cook-animation">👨‍🍳🍳🔥</div>`;
+
+    setTimeout(()=>{
+      area.innerHTML=`<div class="serve-dish">${r.icon}</div>`;
+      document.getElementById('cookMessage').textContent=`🍽️ 大廚上菜：【${r.name}】製作成功，已放入背包！獲得經驗 +${r.exp}！趕快出售換取高額獎金！`;
+      renderKitchen();
+    },1800);
+
+  }else{
+    document.getElementById('cookMessage').textContent='❌ 食材不足！快去農場播種與收穫相對應的蔬菜。';
+  }
+}
+
+function sellDish(id) {
+  const r = recipes.find(x => x.id === id);
+  if(inventory.dishes[id] > 0) {
+    inventory.dishes[id]--;
+    money += r.price;
+    updateStatus();
+    uploadScoreToCloud();
+    alert(`💰 成功售出【${r.name}】1 份，獲得了 ${r.price} 元！`);
+    renderKitchen();
+  }
+}
+
+function sellAllDishes() {
+  let totalEarnings = 0;
+  let soldCount = 0;
+  
+  recipes.forEach(r => {
+    let count = inventory.dishes[r.id] || 0;
+    if(count > 0) {
+      totalEarnings += count * r.price;
+      soldCount += count;
+      inventory.dishes[r.id] = 0;
+    }
+  });
+  
+  if(soldCount > 0) {
+    money += totalEarnings;
+    updateStatus();
+    uploadScoreToCloud();
+    alert(`💰 大豐收！成功出售 ${soldCount} 道美食，共賺進高達 ${totalEarnings} 元！💸`);
+    renderKitchen();
+  } else {
+    alert("🎒 廚房目前空空如也，沒有製作完成的健康料理可以賣喔！");
+  }
+}
+
+/* 背包邏輯 */
+function renderInventory(){
+  const list=document.getElementById('inventoryList');
+  list.innerHTML='';
+
+  Object.keys(cropsData).forEach(k=>{
+    list.innerHTML+=`
+      <div class="inventory-card">
+        <div class="emoji">${cropsData[k].emoji}</div>
+        <h4>${cropsData[k].name}</h4>
+        <div style="text-align: left; width: 100%;">
+          <p style="margin:4px 0; font-size:14px;">🌾 食材庫存：<b>${inventory.foods[k]}</b> 個</p>
+          <p style="color:#70bf70; margin:4px 0; font-size:14px;">🌱 種子剩餘：<b>${inventory.seeds[k]}</b> 個</p>
+        </div>
+      </div>
+    `;
+  });
+
+  recipes.forEach(r => {
+    let count = inventory.dishes[r.id] || 0;
+    list.innerHTML+=`
+      <div class="inventory-card" style="background:#fff9e6; border-color:#ffe0b3;">
+        <div class="emoji">${r.icon}</div>
+        <h4>${r.name}</h4>
+        <p style="font-weight:bold; color:#e68a00; margin:4px 0; font-size:14px;">現有數量: ${count} 份</p>
+        <p style="color:#666; font-size:13px; margin:4px 0;">價值: 💰 ${r.price} 元/份</p>
+      </div>
+    `;
+  });
+}
+
+/* 日夜倒數計時與護眼休息機制 */
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  
+  timerInterval = setInterval(() => {
+    if (document.getElementById('pauseScreen').style.display === 'flex') return;
+    
+    timeLeft--;
+    
+    let mins = Math.floor(timeLeft / 60);
+    let secs = timeLeft % 60;
+    document.getElementById('gameTimer').textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    if (timeLeft <= 0) {
+      if (!isNight) {
+        isNight = true;
+        timeLeft = 3 * 60; 
+        document.body.classList.add('night-mode');
+        document.getElementById('timerPhaseIcon').textContent = '🌙';
+        document.getElementById('timerPhaseText').textContent = '黑夜休息';
+        
+        alert('🌙 已經過 15 分鐘囉！夜幕低垂，農場進入黑夜休息模式。\n\n為了您的眼睛健康，請暫時放下手邊遊戲，閉上眼睛、伸個懶腰休息 3 分鐘吧！🍵');
+      } else {
+        isNight = false;
+        timeLeft = 15 * 60; 
+        document.body.classList.remove('night-mode');
+        document.getElementById('timerPhaseIcon').textContent = '☀️';
+        document.getElementById('timerPhaseText').textContent = '白天模式';
+        
+        alert('☀️ 太陽升起囉！農場迎來了全新的早晨，繼續開始愉快的遊戲與健康學習吧！');
+      }
+    }
+  }, 1000);
+}
+
+// 初始化遊戲
+updateStatus();
+renderFarm();
+</script>
+</body>
+</html>
